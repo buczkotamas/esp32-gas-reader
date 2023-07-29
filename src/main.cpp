@@ -8,7 +8,6 @@
                  // Feather HUZZAH ESP8266 note: use pins 3, 4, 5, 12, 13 or 14 --
                  // Pin 15 can work but DHT must be disconnected during program upload.
 
-// Uncomment whatever type you're using!
 // #define DHTTYPE DHT11 // DHT 11
 #define DHTTYPE DHT22 // DHT 22  (AM2302), AM2321
 // #define DHTTYPE DHT21   // DHT 21 (AM2301)
@@ -23,6 +22,8 @@ DHT dht(DHTPIN, DHTTYPE);
 #define PIN_LEVEL_ON_SILVER_DOT 0
 #define PIN_LEVEL_NOT_ON_SILVER_DOT 1
 
+#define ESP_NOW_MESSAGE_DELAY 10
+
 RTC_DATA_ATTR int gas_count = 0;
 RTC_DATA_ATTR int wakeup_level = PIN_LEVEL_ON_SILVER_DOT;
 
@@ -31,7 +32,7 @@ esp_now_peer_info_t peerInfo;
 Adafruit_INA219 ina219;
 
 uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-// uint8_t broadcastAddress[] = {0xBC, 0xDD, 0xC2, 0x88, 0x81, 0x6};
+// uint8_t broadcastAddress[] = {0xC8, 0xC9, 0xA3, 0x5C, 0x08, 0x31};
 
 void esp_now_send_cb(const uint8_t *mac_addr, esp_now_send_status_t status)
 {
@@ -59,48 +60,20 @@ esp_err_t init_esp_now()
   return ESP_OK;
 }
 
-void send_data()
+void send_data(const char *param, float value)
 {
-  if (init_esp_now() != ESP_OK)
+  String str = String(param);
+  str.concat("=");
+  if (isnan(value))
   {
-    return;
+    str.concat("NaN");
   }
-  char message[250];
-
-  float h = dht.readHumidity();
-  float t = dht.readTemperature();
-  if (isnan(h) || isnan(t))
+  else
   {
-    Serial.println(F("Failed to read from DHT sensor!"));
+    str.concat(value);
   }
-
-  int n = sprintf(message, "humidity=%.2f", isnan(h) ? 0 : h);
-  esp_now_send(broadcastAddress, (uint8_t *)message, n);
-  Serial.println(message);
-
-  n = sprintf(message, "temp=%.2f", isnan(t) ? 0 : t);
-  esp_now_send(broadcastAddress, (uint8_t *)message, n);
-  Serial.println(message);
-
-  n = sprintf(message, "bus_V=%.2f", ina219.getBusVoltage_V());
-  esp_now_send(broadcastAddress, (uint8_t *)message, n);
-  Serial.println(message);
-
-  n = sprintf(message, "shunt_mV=%.2f", ina219.getShuntVoltage_mV());
-  esp_now_send(broadcastAddress, (uint8_t *)message, n);
-  Serial.println(message);
-
-  n = sprintf(message, "current_mA=%.2f", ina219.getCurrent_mA());
-  esp_now_send(broadcastAddress, (uint8_t *)message, n);
-  Serial.println(message);
-
-  n = sprintf(message, "power_mW=%.2f", ina219.getPower_mW());
-  esp_now_send(broadcastAddress, (uint8_t *)message, n);
-  Serial.println(message);
-
-  n = sprintf(message, "gas=%d", gas_count);
-  esp_now_send(broadcastAddress, (uint8_t *)message, n);
-  Serial.println(message);
+  esp_now_send(broadcastAddress, (uint8_t *)str.c_str(), str.length() + 1);
+  Serial.println(str);
 }
 
 void setup()
@@ -116,7 +89,23 @@ void setup()
       gas_count++;
     }
   }
-  send_data();
+  if (init_esp_now() != ESP_OK)
+  {
+    return;
+  }
+  send_data("gas", gas_count);
+  delay(ESP_NOW_MESSAGE_DELAY);
+  send_data("humidity", dht.readHumidity());
+  delay(ESP_NOW_MESSAGE_DELAY);
+  send_data("temp", dht.readTemperature());
+  delay(ESP_NOW_MESSAGE_DELAY);
+  send_data("current_mA", ina219.getCurrent_mA());
+  delay(ESP_NOW_MESSAGE_DELAY);
+  send_data("bus_V", ina219.getBusVoltage_V());
+  delay(ESP_NOW_MESSAGE_DELAY);
+  send_data("power_mW", ina219.getPower_mW());
+  delay(ESP_NOW_MESSAGE_DELAY);
+  send_data("shunt_mV", ina219.getShuntVoltage_mV());
 }
 
 void loop()
