@@ -8,13 +8,13 @@
                  // Feather HUZZAH ESP8266 note: use pins 3, 4, 5, 12, 13 or 14 --
                  // Pin 15 can work but DHT must be disconnected during program upload.
 
-// #define DHTTYPE DHT11 // DHT 11
-#define DHTTYPE DHT22 // DHT 22  (AM2302), AM2321
-// #define DHTTYPE DHT21   // DHT 21 (AM2301)
+#define DHTTYPE DHT11 // DHT 11
+// #define DHTTYPE DHT22 // DHT 22  (AM2302), AM2321
+//  #define DHTTYPE DHT21   // DHT 21 (AM2301)
 
 DHT dht(DHTPIN, DHTTYPE);
 
-#define IR_SENSOR_PIN GPIO_NUM_14
+#define IR_SENSOR_PIN GPIO_NUM_2
 
 #define TIME_TO_SLEEP_5s 5 * 1000000
 
@@ -34,10 +34,13 @@ Adafruit_INA219 ina219;
 uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 // uint8_t broadcastAddress[] = {0xC8, 0xC9, 0xA3, 0x5C, 0x08, 0x31};
 
+// #define DEBUG 1;
+
 void esp_now_send_cb(const uint8_t *mac_addr, esp_now_send_status_t status)
 {
-  Serial.print("\r\nLast Packet Send Status:\t");
-  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+#ifdef DEBUG
+  Serial.printf("Last Packet Send Status: %s\n", status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+#endif
 }
 
 esp_err_t init_esp_now()
@@ -45,7 +48,9 @@ esp_err_t init_esp_now()
   WiFi.mode(WIFI_STA);
   if (esp_now_init() != ESP_OK)
   {
+#ifdef DEBUG
     Serial.println("Error initializing ESP-NOW");
+#endif
     return ESP_FAIL;
   }
   memcpy(peerInfo.peer_addr, broadcastAddress, 6);
@@ -53,7 +58,9 @@ esp_err_t init_esp_now()
   peerInfo.encrypt = false;
   if (esp_now_add_peer(&peerInfo) != ESP_OK)
   {
+#ifdef DEBUG
     Serial.println("Failed to add peer");
+#endif
     return ESP_FAIL;
   }
   // esp_now_register_send_cb(esp_now_send_cb);
@@ -73,12 +80,16 @@ void send_data(const char *param, float value)
     str.concat(value);
   }
   esp_now_send(broadcastAddress, (uint8_t *)str.c_str(), str.length() + 1);
+#ifdef DEBUG
   Serial.println(str);
+#endif
 }
 
 void setup()
 {
+#ifdef DEBUG
   Serial.begin(115200);
+#endif
   ina219.begin();
   dht.begin();
   esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP_1h);
@@ -114,7 +125,9 @@ void loop()
   for (int i = 0; i < 5; i++)
   {
     int sensor_pin = digitalRead(IR_SENSOR_PIN);
+#ifdef DEBUG
     Serial.printf("sensor_pin level = %d\n", sensor_pin);
+#endif
     if (sensor_pin == PIN_LEVEL_ON_SILVER_DOT)
     {
       delay(1000); // silver dot still visible
@@ -125,7 +138,9 @@ void loop()
       break;
     }
   }
+#ifdef DEBUG
   Serial.printf("Go to sleep, wakeup on %s\n", wakeup_level == PIN_LEVEL_NOT_ON_SILVER_DOT ? "NOT_ON_SILVER_DOT" : "ON_SILVER_DOT");
+#endif
   esp_sleep_enable_ext0_wakeup(IR_SENSOR_PIN, wakeup_level);
   esp_deep_sleep_start();
 }
