@@ -89,9 +89,10 @@ void setup()
 {
 #ifdef DEBUG
   Serial.begin(115200);
+  delay(500);
+  Serial.printf("esp_sleep_get_wakeup_cause() == %d\n", esp_sleep_get_wakeup_cause());
+  Serial.printf("gas_count == %d\n", gas_count);
 #endif
-  ina219.begin();
-  dht.begin();
   esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP_1h);
   if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_EXT0)
   {
@@ -104,19 +105,24 @@ void setup()
   {
     return;
   }
-  send_data("gas", gas_count);
-  delay(ESP_NOW_MESSAGE_DELAY);
-  send_data("humidity", dht.readHumidity());
-  delay(ESP_NOW_MESSAGE_DELAY);
-  send_data("temp", dht.readTemperature());
-  delay(ESP_NOW_MESSAGE_DELAY);
-  send_data("current_mA", ina219.getCurrent_mA());
-  delay(ESP_NOW_MESSAGE_DELAY);
-  send_data("bus_V", ina219.getBusVoltage_V());
-  delay(ESP_NOW_MESSAGE_DELAY);
-  send_data("power_mW", ina219.getPower_mW());
-  delay(ESP_NOW_MESSAGE_DELAY);
-  send_data("shunt_mV", ina219.getShuntVoltage_mV());
+  if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER || gas_count % 10 == 0)
+  {
+    ina219.begin();
+    dht.begin();
+    send_data("gas", gas_count);
+    delay(ESP_NOW_MESSAGE_DELAY);
+    send_data("humidity", dht.readHumidity());
+    delay(ESP_NOW_MESSAGE_DELAY);
+    send_data("temp", dht.readTemperature());
+    delay(ESP_NOW_MESSAGE_DELAY);
+    send_data("current_mA", ina219.getCurrent_mA());
+    delay(ESP_NOW_MESSAGE_DELAY);
+    send_data("bus_V", ina219.getBusVoltage_V());
+    delay(ESP_NOW_MESSAGE_DELAY);
+    send_data("power_mW", ina219.getPower_mW());
+    delay(ESP_NOW_MESSAGE_DELAY);
+    send_data("shunt_mV", ina219.getShuntVoltage_mV());
+  }
 }
 
 void loop()
